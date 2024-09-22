@@ -1,0 +1,142 @@
+#!/usr/bin/env bash
+
+set -e
+
+export LC_ALL=C
+
+SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+ROOT_DIR="$SCRIPT_DIR/../.."
+
+TMP_DIR=$(mktemp -d)
+
+######################
+
+mkdir -p "$TMP_DIR"
+
+######################
+
+SCRIPT="$ROOT_DIR/solution/addsuffix"
+[[ -f "$SCRIPT" ]] \
+  || (echo "Script solution/addsuffix does not exist" && exit 1)
+[[ -x "$SCRIPT" ]] \
+  || (echo "Script solution/addsuffix is not executable" && exit 1)
+
+function fail() {
+  echo
+  echo "Arguments: $(printf "'%s' " "$@")"
+  exit 1
+}
+
+function test_solution() {
+  set +e
+  ACTUAL=$("$SCRIPT" "$@" 2>&1)
+  ACTUAL_EXIT=$?
+  set -e
+  if [[ $ACTUAL_EXIT -ne 0 ]]; then
+    echo "$ACTUAL"
+    fail "$@"
+  fi
+  diff --color=always -U 1000 <(echo "$EXPECTED") <(ls -A -1) || fail "$@"
+}
+
+
+echo "Test case #1 (.bak)"
+
+cd "$TMP_DIR"
+touch .bak foo.c hello.c hello.sh test.c test.sh test.tar
+read -r -d '\0' EXPECTED <<EOF
+.bak
+foo.c
+hello.c
+hello.sh.bak
+test.c
+test.sh.bak
+test.tar
+\0
+EOF
+test_solution '.bak' ./*.sh
+
+
+echo "Test case #2 (pp)"
+
+cd "$TMP_DIR"
+read -r -d '\0' EXPECTED <<EOF
+.bak
+foo.cpp
+hello.cpp
+hello.sh.bak
+test.c
+test.sh.bak
+test.tar
+\0
+EOF
+test_solution 'pp' foo.c hello.c
+
+
+echo "Test case #3 (suffix = file)"
+
+cd "$TMP_DIR"
+read -r -d '\0' EXPECTED <<EOF
+.bak.bak
+foo.cpp
+hello.cpp
+hello.sh.bak
+test.c
+test.sh.bak
+test.tar
+\0
+EOF
+test_solution '.bak' .bak
+
+
+echo "Test case #4 (absolute path)"
+
+cd "$TMP_DIR"
+read -r -d '\0' EXPECTED <<EOF
+.bak.bak
+foo.cpp
+hello.cpp
+hello.sh.bak2
+test.c
+test.sh.bak2
+test.tar
+\0
+EOF
+test_solution '2' "$TMP_DIR"/*.bak
+
+
+echo "Test case #5 (directory)"
+
+cd "$TMP_DIR"
+mkdir -p foo/{bar,baz}
+read -r -d '\0' EXPECTED <<EOF
+.bak.bak
+foo.cpp
+foo.new
+hello.cpp
+hello.sh.bak2
+test.c
+test.sh.bak2
+test.tar
+\0
+EOF
+test_solution '.new' "$TMP_DIR/foo"
+
+
+echo "Test case #6 (name with spaces)"
+
+cd "$TMP_DIR"
+touch "my special file"
+read -r -d '\0' EXPECTED <<EOF
+.bak.bak
+foo.cpp
+foo.new
+hello.cpp
+hello.sh.bak2
+my special file.txt
+test.c
+test.sh.bak2
+test.tar
+\0
+EOF
+test_solution '.txt' "my special file"

@@ -1,0 +1,81 @@
+#!/usr/bin/env bash
+
+set -e
+
+export LC_ALL=C
+
+SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+ROOT_DIR="$SCRIPT_DIR/../.."
+
+TMP_DIR=$(mktemp -d)
+
+######################
+
+mkdir -p "$TMP_DIR"
+
+######################
+
+SCRIPT="$ROOT_DIR/solution/fizzbuzz.sh"
+[[ -f "$SCRIPT" ]] \
+  || (echo "Script solution/fizzbuzz.sh does not exist" && exit 1)
+[[ -x "$SCRIPT" ]] \
+  || (echo "Script solution/fizzbuzz.sh is not executable" && exit 1)
+
+function fail() {
+  echo
+  echo "Arguments: $(printf "'%s' " "$@")"
+  exit 1
+}
+
+function test_solution() {
+  set +e
+  ACTUAL=$("$SCRIPT" "$@" 2>&1)
+  ACTUAL_EXIT=$?
+  set -e
+  if [[ $ACTUAL_EXIT -ne 0 ]]; then
+    echo "$ACTUAL"
+    fail "$@"
+  fi
+  diff --color=always -U 1000 <(echo "$EXPECTED") <(echo "$ACTUAL") || fail "$@"
+}
+
+
+echo "Test case #1"
+
+read -r -d '\0' EXPECTED <<EOF
+1
+2
+Fizz
+4
+Buzz
+Fizz
+7
+8
+Fizz
+Buzz
+11
+Fizz
+13
+14
+Fizz Buzz
+16
+17
+Fizz
+19
+Buzz
+\0
+EOF
+test_solution 20
+
+
+echo "Test case #2"
+
+read -r -d '\0' EXPECTED <<EOF
+1
+2
+Fizz
+4
+Buzz
+\0
+EOF
+test_solution 5

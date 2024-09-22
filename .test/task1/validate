@@ -1,0 +1,114 @@
+#!/usr/bin/env bash
+
+set -e
+
+export LC_ALL=C
+
+SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+ROOT_DIR="$SCRIPT_DIR/../.."
+
+TMP_DIR=$(mktemp -d)
+
+######################
+
+mkdir -p "$TMP_DIR"/root/{directory,structure,"foo bar"}/sample
+
+touch "$TMP_DIR/root/foo bar/baz"
+touch "$TMP_DIR/root/directory/sample/foo.txt"
+ln -s "sample/foo.txt" "$TMP_DIR/root/directory/foo.link"
+cat <<EOF >"$TMP_DIR/root/structure/bar.txt"
+foo
+bar
+baz
+EOF
+
+EXPECTED="$TMP_DIR/root"
+
+######################
+
+SCRIPT="$ROOT_DIR/solution/untar"
+[[ -f "$SCRIPT" ]] \
+  || (echo "Script solution/untar does not exist" && exit 1)
+[[ -x "$SCRIPT" ]] \
+  || (echo "Script solution/untar is not executable" && exit 1)
+
+function fail() {
+  echo
+  echo "Test structure:"
+  tree "$EXPECTED"
+  exit 1
+}
+
+function test_solution() {
+  set +e
+  ACTUAL=$("$SCRIPT" "$ARCHIVE_NAME" 2>&1)
+  ACTUAL_EXIT=$?
+  set -e
+  if [[ $ACTUAL_EXIT -ne 0 ]]; then
+    echo "$ACTUAL"
+    fail
+  fi
+  diff --color=always -U 1000 <(echo "") <(echo "$ACTUAL") || fail
+  diff --color=always -r -U 1000 "$EXPECTED" "$ARCHIVE_NAME.unpacked/root" || fail
+}
+
+
+echo "Test case #1 (simple absolute path)"
+
+ARCHIVE_NAME="$TMP_DIR/test.tar"
+rm -rf "$ARCHIVE_NAME.unpacked"
+cd "$TMP_DIR"
+tar cf "$ARCHIVE_NAME" "root"
+cd "$ROOT_DIR" && test_solution
+rm -rf "$ARCHIVE_NAME.unpacked"
+
+
+echo "Test case #2 (simple relative path)"
+
+ARCHIVE_NAME="test.tar"
+rm -rf "$ROOT_DIR/$ARCHIVE_NAME.unpacked"
+cd "$TMP_DIR"
+tar cf "$ARCHIVE_NAME" "root"
+cp "$ARCHIVE_NAME" "$ROOT_DIR/$ARCHIVE_NAME"
+cd "$ROOT_DIR" && test_solution
+rm -rf "$ROOT_DIR/$ARCHIVE_NAME.unpacked"
+
+
+echo "Test case #3 (overwriting target dir)"
+
+ARCHIVE_NAME="$TMP_DIR/test.tar"
+mkdir -p "$ARCHIVE_NAME.unpacked/root" # check overwriting
+cd "$TMP_DIR"
+tar cf "$ARCHIVE_NAME" "root"
+cd "$ROOT_DIR" && test_solution
+rm -rf "$ARCHIVE_NAME.unpacked"
+
+
+echo "Test case #4 (compressed with gzip)"
+
+ARCHIVE_NAME="$TMP_DIR/test.tar.gz"
+rm -rf "$ARCHIVE_NAME.unpacked"
+cd "$TMP_DIR"
+tar cfz "$ARCHIVE_NAME" "root"
+cd "$ROOT_DIR" && test_solution
+rm -rf "$ARCHIVE_NAME.unpacked"
+
+
+echo "Test case #5 (compressed with xz)"
+
+ARCHIVE_NAME="$TMP_DIR/test.tar.xz"
+rm -rf "$ARCHIVE_NAME.unpacked"
+cd "$TMP_DIR"
+tar cfJ "$ARCHIVE_NAME" "root"
+cd "$ROOT_DIR" && test_solution
+rm -rf "$ARCHIVE_NAME.unpacked"
+
+
+echo "Test case #6 (name with spaces)"
+
+ARCHIVE_NAME="$TMP_DIR/test name.tar"
+rm -rf "$ARCHIVE_NAME.unpacked"
+cd "$TMP_DIR"
+tar cf "$ARCHIVE_NAME" "root"
+cd "$ROOT_DIR" && test_solution
+rm -rf "$ARCHIVE_NAME.unpacked"

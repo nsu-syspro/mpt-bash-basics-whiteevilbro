@@ -1,0 +1,71 @@
+#!/usr/bin/env bash
+
+set -e
+
+export LC_ALL=C
+
+SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+ROOT_DIR="$SCRIPT_DIR/../.."
+
+TMP_DIR=$(mktemp -d)
+
+######################
+
+mkdir -p "$TMP_DIR"
+
+DATA="$TMP_DIR/in.txt"
+
+######################
+
+SCRIPT="$ROOT_DIR/solution/reverse"
+[[ -f "$SCRIPT" ]] \
+  || (echo "Script solution/reverse does not exist" && exit 1)
+[[ -x "$SCRIPT" ]] \
+  || (echo "Script solution/reverse is not executable" && exit 1)
+
+function fail() {
+  echo
+  echo "Input:"
+  cat "$DATA"
+  exit 1
+}
+
+function test_solution() {
+  set +e
+  ACTUAL=$("$SCRIPT" <"$DATA" 2>&1)
+  ACTUAL_EXIT=$?
+  set -e
+  if [[ $ACTUAL_EXIT -ne 0 ]]; then
+    echo "$ACTUAL"
+    fail
+  fi
+  diff --color=always -U 1000 <(tac "$DATA") <(echo "$ACTUAL") || fail 
+}
+
+
+echo "Test case #1 (simple)"
+
+cat <<EOF >"$DATA"
+foo
+bar
+baz
+EOF
+cd "$TMP_DIR" && test_solution
+
+
+echo "Test case #2 (with spaces)"
+
+cat <<EOF >"$DATA"
+foo bar
+baz
+EOF
+cd "$TMP_DIR" && test_solution
+
+
+echo "Test case #3 (explicit \n)"
+
+cat <<EOF >"$DATA"
+foo\nbar
+baz
+EOF
+cd "$TMP_DIR" && test_solution
