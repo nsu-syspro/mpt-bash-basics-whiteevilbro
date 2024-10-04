@@ -1,0 +1,4 @@
+#!/bin/bash
+in=$(cat)
+out=$(echo "$in" | tac)
+echo "$out"
