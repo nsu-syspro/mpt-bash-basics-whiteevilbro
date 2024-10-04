@@ -1,0 +1,11 @@
+#!/bin/bash
+echo $@
+suf=$1
+i=0
+for file in "$@"; do
+  if [ $i -eq 0 ]; then
+    i=1
+  else
+    mv "$file" "${file}${suf}"
+  fi
+done
